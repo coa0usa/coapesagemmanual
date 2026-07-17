@@ -853,6 +853,101 @@
             }
         }
 
+        /* === MODAL OVERLAY === */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-card {
+            background: var(--white);
+            border-radius: var(--r-xl);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            width: 95%;
+            max-width: 480px;
+            padding: 24px;
+            transform: translateY(-20px);
+            transition: transform 0.2s ease;
+        }
+        .modal-overlay.active .modal-card {
+            transform: translateY(0);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--usa-verde-escuro);
+        }
+        .modal-close {
+            border: none;
+            background: transparent;
+            font-size: 24px;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-close:hover {
+            color: var(--usa-perigo-vermelho);
+        }
+        
+        .ticket-view {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .ticket-title {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 12px;
+            color: var(--usa-verde-escuro);
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 8px;
+        }
+        .ticket-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .ticket-lbl {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .ticket-val {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .ticket-divider {
+            border-top: 1px dashed var(--border);
+            margin: 10px 0;
+        }
+        .ticket-obs {
+            background: var(--bg-body);
+            border-radius: var(--r-sm);
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
         .print-header-only {
             display: none;
         }
@@ -1019,6 +1114,22 @@
                 color: #000 !important;
                 padding: 1px 4px !important;
                 font-size: 7.5px !important;
+            }
+
+            /* Print style rules for a single weighing ticket */
+            body.print-single-ticket * {
+                visibility: hidden !important;
+            }
+            body.print-single-ticket #print-ticket-area,
+            body.print-single-ticket #print-ticket-area * {
+                visibility: visible !important;
+            }
+            body.print-single-ticket #print-ticket-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                display: block !important;
             }
         }
     </style>
@@ -1572,6 +1683,23 @@
 
     <div id="toasts"></div>
 
+    <!-- Modal de Detalhe da Pesagem -->
+    <div id="modal-detalhe" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>🔍 Detalhes da Pesagem</h3>
+                <button class="modal-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <!-- Conteúdo do ticket será carregado dinamicamente -->
+            </div>
+            <div class="modal-footer btn-row" style="margin-top:20px; justify-content: flex-end;">
+                <button class="btn btn-sec" onclick="imprimirTicket()">🖨️ Imprimir Ticket</button>
+                <button class="btn btn-gst" onclick="fecharModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================================
         // CONFIGURAÇÃO DO FIREBASE (FIRESTORE)
@@ -1799,6 +1927,7 @@
                 cam: cam,
                 mot: document.getElementById('f-mot').value,
                 pnf: +document.getElementById('f-pnf').value || 0,
+                pacarr: document.getElementById('f-pacarr').value,
                 carr: document.getElementById('f-carr').value,
                 opcarr: document.getElementById('f-opcarr').value,
                 doc: document.getElementById('f-doc').value,
@@ -2014,26 +2143,80 @@
         function detalhe(id) {
             var r = DB.find(function (x) { return x.id === id; });
             if (!r) return;
-            alert(
-                'PESAGEM Nº ' + r.np + '\n' +
-                '──────────────────────────────\n' +
-                'Empresa:    ' + r.emp + '\n' +
-                'Data/Hora:  ' + r.dh + '\n' +
-                'Tipo:       ' + r.tp + '\n' +
-                'Produto:    ' + (r.pdesc || '—') + '\n' +
-                'Caminhão:   ' + r.cam + '\n' +
-                'Motorista:  ' + (r.mot || '—') + '\n' +
-                'Origem:     ' + (r.odesc || '—') + '\n' +
-                'Destino:    ' + (r.ddesc || '—') + '\n' +
-                '──────────────────────────────\n' +
-                'Peso 1:     ' + ((r.p1 || 0).toLocaleString('pt-BR')) + ' kg\n' +
-                'Peso 2:     ' + ((r.p2 || 0).toLocaleString('pt-BR')) + ' kg\n' +
-                'Líquido:    ' + ((r.liq || 0).toLocaleString('pt-BR')) + ' kg\n' +
-                'Peso NF:    ' + ((r.pnf || 0).toLocaleString('pt-BR')) + ' kg\n' +
-                'Modo:       ' + (r.modo === 'E' ? 'Entrada' : 'Saída') + '\n' +
-                '──────────────────────────────\n' +
-                'Obs.: ' + (r.obs || '—')
-            );
+
+            var tmDesc = TM[r.tp] || r.tp;
+            var modoDesc = r.modo === 'E' ? '📥 Entrada' : '📤 Saída';
+
+            var html = `
+                <div class="ticket-view">
+                    <div class="ticket-title">PESAGEM Nº ${r.np}</div>
+                    <div class="ticket-row"><span class="ticket-lbl">Empresa:</span><span class="ticket-val">${r.emp}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Data/Hora:</span><span class="ticket-val">${r.dh}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Tipo:</span><span class="ticket-val">${tmDesc}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Produto:</span><span class="ticket-val">${r.pdesc || '—'}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Movimentação:</span><span class="ticket-val">${r.tmov || '—'}</span></div>
+                    <div class="ticket-divider"></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Origem:</span><span class="ticket-val">${r.odesc || '—'} (${r.ocod || '—'})</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Destino:</span><span class="ticket-val">${r.ddesc || '—'} (${r.dcod || '—'})</span></div>
+                    <div class="ticket-divider"></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Caminhão:</span><span class="ticket-val">${r.cam}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Motorista:</span><span class="ticket-val">${r.mot || '—'}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Carregadeira:</span><span class="ticket-val">${r.carr || '—'}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Op. Carregadeira:</span><span class="ticket-val">${r.opcarr || '—'}</span></div>
+                    <div class="ticket-divider"></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Peso 1 (Entrada):</span><span class="ticket-val">${(r.p1 || 0).toLocaleString('pt-BR')} kg</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Peso 2 (Saída):</span><span class="ticket-val">${(r.p2 || 0).toLocaleString('pt-BR')} kg</span></div>
+                    <div class="ticket-row" style="font-size:14px; margin-top:4px;"><span class="ticket-lbl" style="color:var(--usa-verde-escuro); font-weight:700;">Peso Líquido:</span><span class="ticket-val" style="color:var(--usa-verde-escuro); font-weight:800;">${(r.liq || 0).toLocaleString('pt-BR')} kg</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Peso NF:</span><span class="ticket-val">${(r.pnf || 0).toLocaleString('pt-BR')} kg</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Modo:</span><span class="ticket-val">${modoDesc}</span></div>
+                    <div class="ticket-row"><span class="ticket-lbl">Documento:</span><span class="ticket-val">${r.doc || '—'}</span></div>
+                    ${r.obs ? `<div class="ticket-obs"><strong>Obs:</strong> ${r.obs}</div>` : ''}
+                </div>
+            `;
+
+            document.getElementById('modal-body-content').innerHTML = html;
+            document.getElementById('modal-detalhe').classList.add('active');
+        }
+
+        function fecharModal() {
+            document.getElementById('modal-detalhe').classList.remove('active');
+        }
+
+        function imprimirTicket() {
+            var content = document.getElementById('modal-body-content').innerHTML;
+
+            // Criar ou atualizar a área de impressão
+            var printArea = document.getElementById('print-ticket-area');
+            if (!printArea) {
+                printArea = document.createElement('div');
+                printArea.id = 'print-ticket-area';
+                document.body.appendChild(printArea);
+            }
+
+            printArea.innerHTML = `
+                <div style="font-family: Arial, sans-serif; font-size: 11px; max-width: 320px; margin: 0 auto; padding: 15px; border: 1px dashed #000; line-height: 1.5;">
+                    <div style="text-align: center; border-bottom: 1.5px solid #000; padding-bottom: 6px; margin-bottom: 10px;">
+                        <strong style="font-size: 13px;">USINA SANTA ADÉLIA</strong><br>
+                        <span style="font-size: 9px; letter-spacing: 0.5px;">COMPROVANTE DE PESAGEM</span>
+                    </div>
+                    ${content}
+                    <div style="text-align: center; border-top: 1.5px solid #000; padding-top: 6px; margin-top: 12px; font-size: 8.5px;">
+                        SPA_27 - PIMS C/S E<br>
+                        Obrigado!
+                    </div>
+                </div>
+            `;
+
+            // Adiciona classe para esconder o resto na impressão
+            document.body.classList.add('print-single-ticket');
+
+            // Dispara a impressão
+            window.print();
+
+            // Remove a classe após abrir o diálogo de impressão
+            setTimeout(function () {
+                document.body.classList.remove('print-single-ticket');
+            }, 1000);
         }
 
         function excluir(id) {
